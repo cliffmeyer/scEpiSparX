@@ -1,0 +1,27 @@
+model:
+  num_pro_types: 10
+  num_enh_types: 15
+  num_classes: 3
+  num_genes: 2000
+  num_models: 10
+  max_cres_per_gene: 40
+  num_cell_states: 8
+  cre_decay_distance: 10000
+  cre_max_distance: 100000
+
+features:
+  use_signal: false
+  use_local_embeddings: false
+
+files:
+  gene_ref_file: "/Users/len/Projects/lisa2/lisa2/lisa/genomes/hg38.refseq"
+  gene_alias_file: "/Users/len/Projects/cistromesparx_dev/data/gene_regulation/hgnc_complete_set.json"
+  embed_file: null
+  atac_file: "/Users/len/Projects/scepisparx/data/adata_atac_aggregated_eryth_mono_ppmi.h5ad"
+  gex_file: "/Users/len/Projects/scepisparx/data/adata_gex_aggregated_eryth_mono.h5ad"
+
+training:
+  epochs: 4000
+
+experiment:
+  name: "0_0"
