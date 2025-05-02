@@ -1,7 +1,6 @@
-<img src="images/scEpiSparX_logo2.png" alt="logo" height="100" style="vertical-align: middle;">
-<span style="font-size: 30px; font-weight: bold;">
-  scEpiSparX: Single Cell Analysis of Cis-Regulatory Elements through Regression with Epigenetic Embeddings
-</span>
+<img src="images/scEpiSparX_logo_text.png" alt="logo" height="100" style="vertical-align: middle;">
+
+# scEpiSparX: Single Cell Analysis of Cis-Regulatory Elements through Regression with Epigenetic Embeddings
 
 **scEpiSparX** is a suite of tools for **cis-regulatory analysis** of **single-cell epigenomic and transcriptomic data**. 
 It supports scRNA-seq alone, scRNA-seq with scATAC-seq from similar samples, and barcode-matched multiome scRNA-seq with scATAC-seq input (e.g., from 10X Multiome or SHARE-seq).
