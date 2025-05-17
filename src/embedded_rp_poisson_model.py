@@ -24,7 +24,6 @@ class EmbeddedRegPotPoissonRegressor(nn.Module):
         cre_max_distance: int,
         embedding_dim: int,
         use_embeddings: bool,
-        # TODO check use_rp: bool = True,
         use_signal: bool = True
     ):
         super().__init__()
@@ -40,7 +39,6 @@ class EmbeddedRegPotPoissonRegressor(nn.Module):
         self.max_distance = cre_max_distance
 
         self.use_embeddings = use_embeddings # use embeddings
-        # TODO remove self.use_rp = use_rp # use regulatory potential 
         self.use_signal = use_signal  # use ATAC-seq signal for cell type -- assumes matched ATAC and RNA cell types
 
         self.embedding_dim = embedding_dim
@@ -52,9 +50,7 @@ class EmbeddedRegPotPoissonRegressor(nn.Module):
         self.dropout = torch.nn.Dropout(p=0.05) 
 
         # Total reads per cell state
-        # TODO check
         self.raw_log_n_total = nn.Parameter(torch.zeros( self.num_cell_states ))  # Learnable per-cell state log-scale
-        ##self.n_total = nn.Parameter(torch.ones(self.num_cell_states))  # Shape: (num_cell_states,)
 
         # Separate linear layers for mapping embeddings to promoter and enhancer types
         self.embedding_to_pro_type = nn.Linear( self.embedding_dim, self.num_pro_types)
@@ -178,12 +174,8 @@ class EmbeddedRegPotPoissonRegressor(nn.Module):
             class_mask = cre_class == class_idx
 
             if 0:
-             print( 'A:', distances.shape )
-             print( 'B:', delta[class_idx].shape )
-             print( 'C:', cre.shape )
-             print( 'D:', pro_act.shape )
-             print( 'E:', enh_act.shape )
-             print( 'F:', self.bias.shape )
+             print( 'A:', distances.shape );print( 'B:', delta[class_idx].shape );print( 'C:', cre.shape )
+             print( 'D:', pro_act.shape );print( 'E:', enh_act.shape );print( 'F:', self.bias.shape )
 
             relative_dist = torch.clamp(torch.abs(distances), max=self.max_distance) / delta[class_idx].unsqueeze(-1)
             exp_term = torch.exp(-relative_dist)
@@ -232,12 +224,8 @@ class EmbeddedRegPotPoissonRegressor(nn.Module):
                 print(f"pro_act contains NaNs: {torch.isnan(pro_act).any()}")
                 print(f"enh_act contains NaNs: {torch.isnan(enh_act).any()}")
                 print(f"reg contains NaNs: {torch.isnan(reg).any()}")
-                print(f"reg: {reg}")
-            #print(f"n_total: {self.n_total}")
             print(f"n_total contains NaNs: {torch.isnan(self.raw_log_n_total).any()}")
             print(f"log_mu contains NaNs: {torch.isnan(log_mu).any()}")
-            print(f"mu contains NaNs: {torch.isnan(mu).any()}")
-            print(f"mu: {mu}")
 
         return dist.Poisson(rate=mu)
 

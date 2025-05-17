@@ -19,12 +19,11 @@ contributions of multiple enhancer elements are assumed to be additive, and the 
 - Fit cis-regulatory models from:
   - scRNA-seq
   - scRNA-seq and scATAC-seq from similar samples
-  - Barcode-matched scRNA-seq and scATAC-seq data
+  - Barcode-matched scRNA-seq and scATAC-seq data (eg 10x Multiome or SHARE-seq)
 - Use pre-trained or custom epigenetic embeddings from scATAC-seq data
 - Identify cell-type-specific cis-regulatory elements (CREs)
 - Build new embeddings from scATAC-seq data
 - Evaluate and compare multiple models
-- Generate heatmaps of CRE activity
 
 ---
 
@@ -59,6 +58,9 @@ python scEpiSparX.py fit_model path/to/config.yaml [--verbose] [--output path/to
 #### `find_cres`
 
 Evaluate CRE activity using a trained model and export BED files (one per cell type).
+Use the **<name>all.pth** model finds to run this analysis.
+The BED files can be interpreted using the Cistrome Data Browser  **similar cistromes** search at 
+https://db3.cistrome.org, or through motifs analysis tools.
 
 ```bash
 python scEpiSparX.py find_cres path/to/model.pth --config path/to/config.yaml
@@ -67,18 +69,11 @@ python scEpiSparX.py find_cres path/to/model.pth --config path/to/config.yaml
 #### `compare_models`
 
 Evaluate and compare multiple models in terms of fit.
+Use the **<name>validation.pth** models when comparing model performance.
 
 ```bash
 python scEpiSparX.py compare_models model1.pth model2.pth ... \
   --configs config1.yaml config2.yaml ... [--verbose]
-```
-
-#### `plot`
-
-Generate CRE heatmaps from a trained model.
-
-```bash
-python scEpiSparX.py plot path/to/model.pth
 ```
 
 #### `make_embeddings`
@@ -107,15 +102,15 @@ The modeling behavior of scEpiSparX is driven by a YAML config file. Below is a 
 Defines model architecture and data dimensionality:
 ```yaml
 model:
-  num_pro_types: 10           # Number of promoter types
-  num_enh_types: 15           # Number of enhancer types
-  num_classes: 3              # Number of output classes (e.g., expression levels)
+  num_pro_types: 10           # Number of promoter types 
+  num_enh_types: 15           # Number of enhancer types (larger for more complex systems)
+  num_classes: 3              # Number of output classes (don't change this value)
   num_genes: 2000             # Number of genes modeled
-  num_models: 10              # Ensemble size
+  num_models: 10              # Number of models trained (to avoid poor local solutions)
   max_cres_per_gene: 40       # Max number of CREs per gene
   num_cell_states: 8          # Number of distinct cell states
-  cre_decay_distance: 10000   # Distance for exponential decay of CRE effect
-  cre_max_distance: 100000    # Maximum distance to consider a CRE
+  cre_decay_distance: 10000   # Distance for exponential decay of CRE effect (10kb works well)
+  cre_max_distance: 100000    # Maximum distance to consider a CRE 
 ```
 
 ### `features` Section
@@ -124,7 +119,7 @@ Controls the type of input features:
 ```yaml
 features:
   use_signal: true              # Use signal values from Cistrome DB
-  use_local_embeddings: false  # Whether to use local (scATAC-derived) embeddings
+  use_local_embeddings: false  # Whether to use local (scATAC-derived) embeddings (use **make_embeddings** before using this option.)
 ```
 
 ### `files` Section
@@ -180,17 +175,6 @@ Paths to input files and directories containing gene data, embeddings, and resul
 Parameters related to genomic regions and dataset splitting:
 
 - **`max_regions_per_gene`**: Number of putative CRE elements to consider, starting from the transcription start site (TSS) and moving outward.
-- **`train_ratio`**: Proportion of genes in the training set. Keep this balanced to ensure a meaningful validation set.
-Use defaults.
-
-#### **`neural_network_params`**: Hyperparameters for the neural network, such as architecture and regularization.
-Use defaults.
-
-#### **`optimization_params`**: Training parameters including optimizer, learning rate, and number of epochs.
-Use defaults.
-
-#### **`perturbation_analysis`**: Parameters controlling perturbation thresholds for deletion analysis.
-Use defaults.
 
 ---
 
@@ -201,6 +185,23 @@ Use defaults.
 - `.png`/`.pdf`: Heatmaps and diagnostic plots
 - `.h5ad`: Processed AnnData objects with embeddings
 
+
+## Getting Started
+
+To test the software download and preprocess a 10x Multiome dataset:
+```bash
+python src/extract_neurips_data.py
+```
+Several `.h5ad` should appear in the `data` folder. 
+Edit the paths in the config file `configs/configs_0:sc.yaml`, then 
+run the regression model:
+```bash
+python src/scEpiSparX.py fit_model configs/config_0_sc.yaml
+```
+Find the active cis-regulatory regions from the most recent model.
+```bash
+python src/scEpiSparX.py find_cres models/model*all.pth --config configs/config_0_sc.yaml
+```
 
 ## Citation
 If you use **scEpiSparX** in your research, please cite:

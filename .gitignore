@@ -4,3 +4,4 @@ figures
 misc
 models
 results
+*.pth

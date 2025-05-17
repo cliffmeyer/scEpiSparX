@@ -96,14 +96,9 @@ def load_config(path="config.yaml"):
 
 def compose_experiment_name(
     experiment_name: str,
-    #use_rp: bool,
-    # TODO check use_embeddings: bool,
     use_local_embeddings: bool,
     use_external_embeddings: bool, 
     use_signal: bool ) -> str:
-
-    #name_a = "rp" if use_rp else "no-rp"
-    #name_b = "embed" if use_embeddings else "no-embed"
     name_a = "local-embed" if use_local_embeddings else "no-local-embed"
     name_b = "external-embed" if use_external_embeddings else "no-external-embed"
     name_c = "signal" if use_signal else "no-signal"
@@ -145,7 +140,7 @@ def assign_name_category(names):
     return [token_to_index[token] for token in first_tokens]
 
 
-def evaluate_model_fit(model_paths: List[str], config_paths: List[str], verbose=True, plot_name_prefix="test"):
+def evaluate_model_fit(model_paths: List[str], config_paths: List[str], verbose=True):
     """
     Load models, compute predictions and residuals, and plot MAD residual comparison.
 
@@ -153,7 +148,6 @@ def evaluate_model_fit(model_paths: List[str], config_paths: List[str], verbose=
         model_paths (List[str]): List of model checkpoint paths.
         config_paths (List[str]): List of config.yaml paths, one for each model.
         verbose (bool): Print status messages.
-        plot_name_prefix (str): Optional prefix for output plot files.
     """
     if len(model_paths) != len(config_paths):
         raise ValueError("model_paths and config_paths must have the same length.")
@@ -224,55 +218,37 @@ def evaluate_model_fit(model_paths: List[str], config_paths: List[str], verbose=
     dev_res.plot_deviance_residual_histograms_by_cell_state(all_results, model_labels=model_labels,name="dev_res_histograms")
 
 
-def plot_cre_heatmaps(model_path: str):
-    if not os.path.exists(model_path):
-        raise "path not found"
-    checkpoint = torch.load(model_path, map_location="cpu")
-    model = EmbeddedRegPotPoissonRegressor(**checkpoint["params"])
-    model.load_state_dict(checkpoint["state_dict"])
-    model.plot_cre_heatmaps( cell_state_labels=None, pro_type_labels=None, enh_type_labels=None)
-
-
-def evaluate_cre_activity_and_write(model_path, config_path,  method='cre_activity'):  
+def evaluate_cre_activity_and_write(model_path, config_path, method='cre_activity', plot_diagnostics=False):  
 
     config = load_config(path=config_path)
     if not os.path.exists(model_path):
         raise "path not found"
     checkpoint = torch.load(model_path, map_location="cpu")
- 
-    print("==== checkpoint ====")
-    print(model_path)
-    print(checkpoint["params"])
-    print("====================")
 
     model = EmbeddedRegPotPoissonRegressor(**checkpoint["params"])
     model.load_state_dict(checkpoint["state_dict"])
+
+    if plot_diagnostics:
+        model.plot_cre_heatmaps( cell_state_labels=None, pro_type_labels=None, enh_type_labels=None)
+
     data_files = checkpoint["data_files"]
-    #data_keys = {"atac_file", "gex_file", "embed_file", "max_cres_per_gene", "num_genes"}
     data_keys = {"atac_file", "gex_file", "embed_file", 
         "gene_alias_file", "gene_ref_file",  
         "max_cres_per_gene", "num_genes", "use_local_embeddings"}
 
-    # data_kwargs = {k: v for k, v in checkpoint["params"].items() if k in data_keys}
     data_kwargs = {k: v for k, v in config.items() if k in data_keys}
     data_kwargs.update(data_files)
 
     gene_reg_data = model_setup.model_setup(**data_kwargs)
     gene_reg_data.populate_gene_subset_matrices(gene_set_name='all')
 
-    print("====     gex    ====")
-    print( "gex val all data shape:", gene_reg_data.gene_expression_all.shape )
-    print( "gex val cur data shape:", gene_reg_data.gene_expression_tensor.shape )
-    print("====================")
-
     _,name = os.path.split(model_path)
-    #name,*other = name.split('.')
     name, ext = os.path.splitext(name)
  
     if method == 'cre_activity':
         evaluate_regions.evaluate_cre_activity_and_write( model=model, gene_reg_data=gene_reg_data, model_name=name )  
     elif method == 'in_silico_deletion':
-        print( 'In silico deletion analysis is not recommended')
+        print( 'In silico deletion analysis is not recommended in this application.')
         in_silico_deletion.in_silico_deletion_analysis(model, gene_reg_data)
 
 
@@ -283,9 +259,6 @@ def fit_model(config_file="config.yaml", output='.',  verbose=False):
 
     experiment_name = compose_experiment_name(
         experiment_name = config["experiment_name"],
-        # TODO delete use_rp = config["use_rp"],
-        # TODO replace use_embeddings with use_external_embeddings and use_local_embeddings
-        #use_embeddings = config["use_embeddings"],
         use_local_embeddings = config["use_local_embeddings"],
         use_external_embeddings = (config["embed_file"] is not None),
         use_signal = config["use_signal"]
@@ -304,11 +277,9 @@ def fit_model(config_file="config.yaml", output='.',  verbose=False):
     num_cell_states = gene_reg_data.cre_all.shape[0]
     #max_num_genes = gene_reg_data.cre_tensor.shape[1]
     max_num_genes = config['num_genes']
-    print( data_kwargs )
 
     #max_cres_per_gene = gene_reg_data.cre_tensor.shape[2]
     max_cres_per_gene = config['max_cres_per_gene']
-    #embedding_dim = gene_reg_data.cre_embeddings_tensor.shape[0]
     if gene_reg_data.cre_embeddings_ref is None:
         embedding_dim = 0
     else:
@@ -360,8 +331,6 @@ def fit_model(config_file="config.yaml", output='.',  verbose=False):
         data_files = {k: v for k, v in config.items() if k in data_keys}
 
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        print( output )
-        print(  f"model_{experiment_name}_{timestamp}_validate.pth" )
         model_path = os.path.join( output, f"model_{experiment_name}_{timestamp}_validate.pth" )
         model.save_model( path=model_path, data_files=data_files )
         models.append(model)
@@ -370,19 +339,12 @@ def fit_model(config_file="config.yaml", output='.',  verbose=False):
     # Find the model with the smallest loss
     best_model_path = min(loss_record, key=loss_record.get)
 
-    #====  process best model =====
     # Read in this best model
     if not os.path.exists(best_model_path):
         raise "Best model not found"
 
     # load best model
     checkpoint = torch.load(best_model_path)
-
-    print("==== checkpoint best model ====")
-    print(best_model_path)
-    print(checkpoint["params"])
-    print("===============================")
-
     model = EmbeddedRegPotPoissonRegressor(**checkpoint["params"])
     result = model.load_state_dict(checkpoint["state_dict"])
 
@@ -392,14 +354,12 @@ def fit_model(config_file="config.yaml", output='.',  verbose=False):
     model.initialize_gene_parameters( num_genes=gene_reg_data.num_genes )
     model.freeze_non_gene_parameters()
     model.train_model( gene_reg_data, num_epochs=config['epochs'] )
-    print("====     gex    ====")
-    print( "gex val all data shape:", gene_reg_data.gene_expression_all.shape )
-    print("====================")
     model.eval()
 
     # save model with all genes
     data_files = checkpoint["data_files"]
-    print( best_model_path )
+    if verbose:
+        print( "Best model:", best_model_path )
     #name,ext = best_model_path.split('.')
     name, ext = os.path.splitext(best_model_path)
 
@@ -411,7 +371,8 @@ def fit_model(config_file="config.yaml", output='.',  verbose=False):
     for path in loss_record:
         if path != best_model_path and os.path.exists(path):
             os.remove(path)
-            print(f"Deleted model: {path}")
+            if verbose:
+                print(f"Deleted model: {path}")
 
 
 def expand_model_paths(paths):
@@ -442,6 +403,7 @@ def main():
     eval_parser = subparsers.add_parser("find_cres", help="Evaluate CRE activity for a single model and write to BED files (one file per cell type).")
     eval_parser.add_argument("model_path", type=str, help="Path to a pytorch model file")
     eval_parser.add_argument("--config", type=str, required=True, help="Path to a config file")
+    eval_parser.add_argument("--diagnostics", action="store_true", help="Plot diagnostics.")
 
     # Option 3: Evaluate and compare multiple models in terms of model fit
     compare_parser = subparsers.add_parser("compare_models", help="Evaluate model fit for multiple models")
@@ -449,11 +411,7 @@ def main():
     compare_parser.add_argument("--configs", nargs="+", type=str, required=True, help="List of config paths, matching model_paths")
     compare_parser.add_argument("--verbose", action="store_true", help="Enable verbose output")
 
-    # Option 4: Plot CRE heatmaps
-    plot_parser = subparsers.add_parser("plot", help="Plot CRE heatmaps for a model")
-    plot_parser.add_argument("model_path", type=str, help="Path to model file")
-
-    # Option 5: Make embeddings from scATAC-seq data.
+    # Option 4: Make embeddings from scATAC-seq data.
     embed_parser = subparsers.add_parser("make_embeddings", help="Make embeddings from scATAC-seq data and save in AnnData file.")
     embed_parser.add_argument("input_file", type=str, help="Path to the input AnnData (.h5ad) file.")
     embed_parser.add_argument("--output_file", "-o", type=str, default = "", help="Path to save the processed AnnData (.h5ad) file.")
@@ -472,16 +430,13 @@ def main():
         fit_model(config_file=args.config, output=args.output, verbose=args.verbose)
 
     elif args.command == "find_cres":
-        evaluate_cre_activity_and_write( args.model_path, args.config, method='cre_activity')
+        evaluate_cre_activity_and_write( args.model_path, args.config, method='cre_activity', plot_diagnostics=args.diagnostics)
 
     elif args.command == "compare_models":
         model_paths = expand_model_paths(args.model_paths)
         if not model_paths:
             raise ValueError("No .pth files found in provided paths.")
-        evaluate_model_fit(args.model_paths, args.configs, verbose=args.verbose, plot_name_prefix="some_prefix")
-
-    elif args.command == "plot":
-        plot_cre_heatmaps(args.model_path)
+        evaluate_model_fit(args.model_paths, args.configs, verbose=args.verbose)
 
     elif args.command == "make_embeddings":
         make_embeddings.main(args)

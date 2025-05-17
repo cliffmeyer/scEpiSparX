@@ -24,14 +24,12 @@ def convert_to_int_beta(values, alpha=2, beta_param=5, scale_factor=10):
     beta_samples = beta.rvs(alpha, beta_param, size=len(values))  # Sample from Beta distribution
     return np.round(beta_samples * normalized_values * scale_factor).astype(int)
 
-
 def convert_to_int_poisson(values, scale_factor=10):
     """
-    Convert floating point gene expression values to integers using the Negative Binomial distribution.
+    Convert floating point gene expression values to integers using Poisson distribution.
 
     Args:
         values (ndarray): Array of continuous gene expression values.
-        dispersion (float): Dispersion parameter for the Negative Binomial distribution.
         scale_factor (float): Scaling factor for conversion.
 
     Returns:
@@ -39,7 +37,6 @@ def convert_to_int_poisson(values, scale_factor=10):
     """
     values = np.clip(values * scale_factor, 1e-2, None)  # Avoid zero issues
     return poisson.rvs(values).astype(int) 
-
 
 def define_gene_sets(num_genes, num_states, fraction_active=0.5):
     """
@@ -65,8 +62,7 @@ def define_gene_sets(num_genes, num_states, fraction_active=0.5):
 
     return state_gene_sets
 
-
-def assign_cis_regulatory_elements_per_gene(num_genes, min_cres_per_gene=2, max_cres_per_gene=5):
+def assign_cis_regulatory_elements_per_gene(num_genes, min_cres_per_gene=5, max_cres_per_gene=10):
     """
     Assign each gene a unique set of cis-regulatory elements (CREs).
     
@@ -87,7 +83,6 @@ def assign_cis_regulatory_elements_per_gene(num_genes, min_cres_per_gene=2, max_
         cre_id += num_cres
     
     return gene_to_cres, cre_id
-
 
 def create_cre_gene_distance_map(gene_to_cres, max_distance=100):
     """
@@ -110,9 +105,6 @@ def create_cre_gene_distance_map(gene_to_cres, max_distance=100):
             sign = np.random.choice([-1, 1])  # Randomly assign sign
             cre_gene_distances[(gene, cre)] = sign * distance  # Assign signed distance
     return cre_gene_distances
-
-
-import numpy as np
 
 def assign_cre_types(num_cres, num_cre_types):
     """
@@ -158,7 +150,6 @@ def generate_cre_embeddings(cre_types, num_cre_types, dim_embed):
     # Map each CRE's type to its corresponding embedding vector
     return embedding_matrix[cre_types]
 
-
 def compute_gene_expression(cre_gene_distances, cre_activity, decay_factor=0.05):
     """
     Compute gene expression based on CRE activity and distance-based weighting.
@@ -178,7 +169,6 @@ def compute_gene_expression(cre_gene_distances, cre_activity, decay_factor=0.05)
         gene_expression[gene] += cre_activity[cre] * np.exp(-decay_factor * distance)
 
     return gene_expression
-
 
 def simulate_state_data(num_genes, gene_to_cres, cre_gene_distances, state_gene_sets,
                         cre_type_matrix, cre_state_matrix, cre_accessibility,
@@ -217,7 +207,6 @@ def simulate_state_data(num_genes, gene_to_cres, cre_gene_distances, state_gene_
             gene_expression[gene] = np.mean(overall_cre_activity[cre_indices])  # Average CRE effect
 
     return gene_expression, overall_cre_activity
-
 
 def simulate_system_data(num_genes=100, num_states=3, num_cre_types=4, dim_embed=16):
     """
@@ -293,7 +282,6 @@ def simulate_system_data(num_genes=100, num_states=3, num_cre_types=4, dim_embed
 
         cre_accessibility_int.append(convert_to_int_poisson(cre_accessibility))
  
-
     return {
         "gene_to_cres": gene_to_cres,
         "cre_gene_distances": cre_gene_distances,
@@ -309,78 +297,82 @@ def simulate_system_data(num_genes=100, num_states=3, num_cre_types=4, dim_embed
     }
 
 
+def load():
+    # Read data
+    loaded_data = sim_io.read_simulated_data(file_prefix="simulated_data")
+
+    # Extract states dynamically
+    print( sim_res["gene_expression"] )
+
+    # Extract values from the dictionary
+    gene_expression = sim_res["gene_expression"]
+    gene_expression_int_poisson = sim_res["gene_expression_int_poisson"]
+    cre_activity = sim_res["cre_activity"]
+    cre_activity_int_beta = sim_res["cre_activity_int_beta"]
+
+def plot_sim_data(gene_expression):
+    # Generate scatter plots for all possible state pairs
+
+    states = list(range(len(gene_expression)))
+    for state_A, state_B in itertools.combinations(states, 2):
+        # Gene expression scatter plot (continuous values)
+        plt.scatter(gene_expression[state_A], gene_expression[state_B], alpha=0.5)
+        plt.xlabel(f"Gene Expression in {state_A}")
+        plt.ylabel(f"Gene Expression in {state_B}")
+        plt.title(f"Comparison of Gene Expression Between {state_A} and {state_B}")
+        plt.show()
+ 
+        # Gene expression scatter plot (Poisson-converted values)
+        plt.scatter(gene_expression_int_poisson[state_A], 
+                    gene_expression_int_poisson[state_B], alpha=0.5)
+        plt.xlabel(f"Gene Expression in {state_A} (Poisson)")
+        plt.ylabel(f"Gene Expression in {state_B} (Poisson)")
+        plt.title(f"Comparison of Poisson Gene Expression Between {state_A} and {state_B}")
+        plt.show()
+ 
+        # CRE activity scatter plot (continuous values)
+        plt.scatter(cre_activity[state_A], cre_activity[state_B], alpha=0.5)
+        plt.xlabel(f"CRE Activity in {state_A}")
+        plt.ylabel(f"CRE Activity in {state_B}")
+        plt.title(f"Comparison of CRE Activity Between {state_A} and {state_B}")
+        plt.show()
+ 
+        # CRE activity scatter plot (Beta-converted values)
+        plt.scatter(cre_activity_int_beta[states.index(state_A)], 
+                    cre_activity_int_beta[states.index(state_B)], alpha=0.5)
+        plt.xlabel(f"CRE Activity in {state_A} (Beta)")
+        plt.ylabel(f"CRE Activity in {state_B} (Beta)")
+        plt.title(f"Comparison of Beta CRE Activity Between {state_A} and {state_B}")
+        plt.show()
+
+    # Observed vs. true gene expression for each state
+    for state in states:
+        plt.scatter(gene_expression[state], gene_expression_int_poisson[state], alpha=0.5)
+        plt.xlabel(f"True Gene Expression in {state}")
+        plt.ylabel(f"Observed Gene Expression in {state} (Poisson)")
+        plt.title(f"Observed vs. True Gene Expression in {state}")
+        plt.show()
+
+def main_sim():
+    sim_res = simulate_system_data()
+
+    # Print type and dimensions of the returned data
+    for key, value in sim_res.items():
+        if isinstance(value, np.ndarray):  # If it's a NumPy array, print its shape
+            print(f"{key}: type={type(value)}, shape={value.shape}")
+        elif isinstance(value, list):  # If it's a list, print its length and shape if applicable
+            print(f"{key}: type={type(value)}, length={len(value)}")
+            if len(value) > 0 and isinstance(value[0], np.ndarray):
+                print(f"  └── First element shape: {value[0].shape}")
+        elif isinstance(value, dict):  # If it's a dictionary, print the number of keys
+            print(f"{key}: type={type(value)}, num_keys={len(value)}")
+        else:  # For any other type, just print it
+            print(f"{key}: type={type(value)}")
+
+    # Write data
+    sim_io.write_simulated_data(sim_res, file_prefix="simulated_data")
 
 
-# Example usage
-sim_res = simulate_system_data()
-
-# Print type and dimensions of the returned data
-for key, value in sim_res.items():
-    if isinstance(value, np.ndarray):  # If it's a NumPy array, print its shape
-        print(f"{key}: type={type(value)}, shape={value.shape}")
-    elif isinstance(value, list):  # If it's a list, print its length and shape if applicable
-        print(f"{key}: type={type(value)}, length={len(value)}")
-        if len(value) > 0 and isinstance(value[0], np.ndarray):
-            print(f"  └── First element shape: {value[0].shape}")
-    elif isinstance(value, dict):  # If it's a dictionary, print the number of keys
-        print(f"{key}: type={type(value)}, num_keys={len(value)}")
-    else:  # For any other type, just print it
-        print(f"{key}: type={type(value)}")
-
-# Write data
-sim_io.write_simulated_data(sim_res, file_prefix="simulated_data")
-
-# Read data
-loaded_data = sim_io.read_simulated_data(file_prefix="simulated_data")
-
-# Extract states dynamically
-print( sim_res["gene_expression"] )
-
-# Extract values from the dictionary
-gene_expression = sim_res["gene_expression"]
-gene_expression_int_poisson = sim_res["gene_expression_int_poisson"]
-cre_activity = sim_res["cre_activity"]
-cre_activity_int_beta = sim_res["cre_activity_int_beta"]
-
-# Generate scatter plots for all possible state pairs
-
-states = list(range(len(gene_expression)))
-for state_A, state_B in itertools.combinations(states, 2):
-    # Gene expression scatter plot (continuous values)
-    plt.scatter(gene_expression[state_A], gene_expression[state_B], alpha=0.5)
-    plt.xlabel(f"Gene Expression in {state_A}")
-    plt.ylabel(f"Gene Expression in {state_B}")
-    plt.title(f"Comparison of Gene Expression Between {state_A} and {state_B}")
-    plt.show()
-
-    # Gene expression scatter plot (Poisson-converted values)
-    plt.scatter(gene_expression_int_poisson[state_A], 
-                gene_expression_int_poisson[state_B], alpha=0.5)
-    plt.xlabel(f"Gene Expression in {state_A} (Poisson)")
-    plt.ylabel(f"Gene Expression in {state_B} (Poisson)")
-    plt.title(f"Comparison of Poisson Gene Expression Between {state_A} and {state_B}")
-    plt.show()
-
-    # CRE activity scatter plot (continuous values)
-    plt.scatter(cre_activity[state_A], cre_activity[state_B], alpha=0.5)
-    plt.xlabel(f"CRE Activity in {state_A}")
-    plt.ylabel(f"CRE Activity in {state_B}")
-    plt.title(f"Comparison of CRE Activity Between {state_A} and {state_B}")
-    plt.show()
-
-    # CRE activity scatter plot (Beta-converted values)
-    plt.scatter(cre_activity_int_beta[states.index(state_A)], 
-                cre_activity_int_beta[states.index(state_B)], alpha=0.5)
-    plt.xlabel(f"CRE Activity in {state_A} (Beta)")
-    plt.ylabel(f"CRE Activity in {state_B} (Beta)")
-    plt.title(f"Comparison of Beta CRE Activity Between {state_A} and {state_B}")
-    plt.show()
-
-# Observed vs. true gene expression for each state
-for state in states:
-    plt.scatter(gene_expression[state], gene_expression_int_poisson[state], alpha=0.5)
-    plt.xlabel(f"True Gene Expression in {state}")
-    plt.ylabel(f"Observed Gene Expression in {state} (Poisson)")
-    plt.title(f"Observed vs. True Gene Expression in {state}")
-    plt.show()
+if __name__ == '__main__':
+    main_sim()
 
