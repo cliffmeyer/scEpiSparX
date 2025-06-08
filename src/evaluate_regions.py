@@ -239,38 +239,59 @@ def compute_cre_influence_for_all_regions(embedding_weights=None, activities=Non
     return reg_influence, regions
 
 
-def evaluate_cre_activity_and_write( *, model=None, gene_reg_data=None, n_top_regions=1000, model_name='test' ):  
-
-    # enhancers 
-    reg_influence, regions = compute_cre_influence_for_all_regions( 
-        embedding_weights = model.embedding_to_enh_type.weight, 
-        activities = model.enh_act,
-        atac_adata = gene_reg_data.atac_adata,
-        use_atac_signal = model.use_signal
-    )
+def evaluate_cre_activity_and_write( *, model=None, gene_reg_data=None, n_top_regions=1000, model_name='test', 
+    output_enhancer=True, output_promoter=False, output_negative=False, output_bedgraph=True ):  
+    """
+    Args:
+        - model: 
+        - gene_reg_data: 
+        - n_top_regions: number of regions to output to BED file
+        - model_name: name to include in output file name
+        - output_enhancer (bool): output enhancer CREs (default True)
+        - output_promoter (bool): output promoter CREs (default False)
+        - output_negative (bool): output negative CREs (default False)
+        - output_bedgraph (bool): output values as BEDgraph (default True)
+    """
 
     cell_types = gene_reg_data.atac_adata.obs_names
     cell_types = [ elem.replace(' ','_') for elem in cell_types ]
     cell_types = [ elem.replace('/','_') for elem in cell_types ]
-
-    plot_regulatory_influence_histograms(reg_influence, cell_types)
-
-    print_influence_to_bed( reg_influence, regions = regions, cell_types = cell_types, n_top = n_top_regions, name = f'{model_name}_enh_pos' )
-    print_influence_to_bed( reg_influence, regions = regions, cell_types = cell_types, n_top = -n_top_regions, name = f'{model_name}_enh_neg' )
-    print_influence_to_bedgraph( reg_influence, regions = regions, cell_types = cell_types, name = f'{model_name}_enh' )
  
+    # enhancers
+    if output_enhancer:
+        reg_influence, regions = compute_cre_influence_for_all_regions( 
+            embedding_weights = model.embedding_to_enh_type.weight, 
+            activities = model.enh_act,
+            atac_adata = gene_reg_data.atac_adata,
+            use_atac_signal = model.use_signal
+        )
+
+        plot_regulatory_influence_histograms(reg_influence, cell_types)
+
+        print_influence_to_bed( reg_influence, regions = regions, cell_types = cell_types, n_top = n_top_regions, name = f'{model_name}_enhancer_positive' )
+
+        if output_bedgraph: 
+            print_influence_to_bedgraph( reg_influence, regions = regions, cell_types = cell_types, name = f'{model_name}_enhancer' )
+
+        if output_negative:
+            print_influence_to_bed( reg_influence, regions = regions, cell_types = cell_types, n_top = -n_top_regions, name = f'{model_name}_enhancer_negative' )
+
     # promoters
-    reg_influence, regions = compute_cre_influence_for_all_regions( 
-        embedding_weights = model.embedding_to_pro_type.weight, 
-        activities = model.pro_act,
-        atac_adata = gene_reg_data.atac_adata,
-        use_atac_signal = model.use_signal
-    )
+    if output_promoter:
+        reg_influence, regions = compute_cre_influence_for_all_regions( 
+            embedding_weights = model.embedding_to_pro_type.weight, 
+            activities = model.pro_act,
+            atac_adata = gene_reg_data.atac_adata,
+            use_atac_signal = model.use_signal
+        )
+     
+        plot_regulatory_influence_histograms(reg_influence, cell_types)
+     
+        print_influence_to_bed( reg_influence, regions = regions, cell_types = cell_types, n_top = n_top_regions, name = f'{model_name}_promoter_positive' )
 
-    plot_regulatory_influence_histograms(reg_influence, cell_types)
+        if output_bedgraph: 
+            print_influence_to_bedgraph( reg_influence, regions = regions, cell_types = cell_types, name = f'{model_name}_promoter' )
 
-    print_influence_to_bed( reg_influence, regions = regions, cell_types = cell_types, n_top = n_top_regions, name = f'{model_name}_pro_pos' )
-    print_influence_to_bed( reg_influence, regions = regions, cell_types = cell_types, n_top = -n_top_regions, name = f'{model_name}_pro_neg' )
-    print_influence_to_bedgraph( reg_influence, regions = regions, cell_types = cell_types, name = f'{model_name}_pro' )
-
+        if output_negative:
+            print_influence_to_bed( reg_influence, regions = regions, cell_types = cell_types, n_top = -n_top_regions, name = f'{model_name}_promoter_negative' )
 

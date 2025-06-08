@@ -42,7 +42,7 @@ pip install -r requirements.txt
 Run the tool with:
 
 ```bash
-python scEpiSparX.py <command> [options]
+python scepisparX.py <command> [options]
 ```
 
 ### Available Commands:
@@ -52,7 +52,7 @@ python scEpiSparX.py <command> [options]
 Train a cis-regulatory model using a configuration file.
 
 ```bash
-python scEpiSparX.py fit_model path/to/config.yaml [--verbose] [--output path/to/output]
+python scepisparx.py fit_model path/to/config.yaml [--verbose] [--output path/to/output]
 ```
 
 #### `find_cres`
@@ -63,7 +63,7 @@ The BED files can be interpreted using the Cistrome Data Browser  **similar cist
 https://db3.cistrome.org, or through motifs analysis tools.
 
 ```bash
-python scEpiSparX.py find_cres path/to/model.pth --config path/to/config.yaml
+python scepisparx.py find_cres path/to/model.pth --config path/to/config.yaml
 ```
 
 #### `compare_models`
@@ -72,7 +72,7 @@ Evaluate and compare multiple models in terms of fit.
 Use the **<name>validation.pth** models when comparing model performance.
 
 ```bash
-python scEpiSparX.py compare_models model1.pth model2.pth ... \
+python scepisparx.py compare_models model1.pth model2.pth ... \
   --configs config1.yaml config2.yaml ... [--verbose]
 ```
 
@@ -81,7 +81,7 @@ python scEpiSparX.py compare_models model1.pth model2.pth ... \
 Generate epigenetic embeddings from scATAC-seq data in `.h5ad` format.
 
 ```bash
-python scEpiSparX.py make_embeddings input.h5ad \
+python scepisparx.py make_embeddings input.h5ad \
   --output_file output.h5ad \
   --embeddings PPMI \
   --n_components 16 \
@@ -102,13 +102,13 @@ The modeling behavior of scEpiSparX is driven by a YAML config file. Below is a 
 Defines model architecture and data dimensionality:
 ```yaml
 model:
-  num_pro_types: 10           # Number of promoter types 
+  num_pro_types: 10           # Number of promoter types (less important than num_enh_types)
   num_enh_types: 15           # Number of enhancer types (larger for more complex systems)
   num_classes: 3              # Number of output classes (don't change this value)
   num_genes: 2000             # Number of genes modeled
   num_models: 10              # Number of models trained (to avoid poor local solutions)
   max_cres_per_gene: 40       # Max number of CREs per gene
-  num_cell_states: 8          # Number of distinct cell states
+  num_cell_states: 8          # Number of distinct cell states as determined by preprocessing method (such as Leiden clustering by MIRA or scanpy)
   cre_decay_distance: 10000   # Distance for exponential decay of CRE effect (10kb works well)
   cre_max_distance: 100000    # Maximum distance to consider a CRE 
 ```
@@ -118,7 +118,7 @@ model:
 Controls the type of input features:
 ```yaml
 features:
-  use_signal: true              # Use signal values from Cistrome DB
+  use_signal: true             # Use signal values (aggregation regional read counts) for ATAC-seq data
   use_local_embeddings: false  # Whether to use local (scATAC-derived) embeddings (use **make_embeddings** before using this option.)
 ```
 
@@ -127,9 +127,9 @@ features:
 Paths to input files:
 ```yaml
 files:
-  atac_file: "adata_atac_aggregated_eryth_mono_ppmi.h5ad"  # scATAC AnnData input
-  gex_file: "adata_gex_aggregated_eryth_mono.h5ad"          # scRNA AnnData input
-  embed_file: "/path/to/ATAC_HG38_regions.h5"               # Epigenetic embeddings (e.g., from CistromeSparX)
+  atac_file: "adata_atac_aggregated_eryth_mono_ppmi.h5ad"   # scATAC AnnData input - preprocessed by aggregation of reads according to cell state 
+  gex_file: "adata_gex_aggregated_eryth_mono.h5ad"          # scRNA AnnData input - preprocessed by aggregattion of reads according to cell state
+  embed_file: "/path/to/ATAC_HG38_regions.h5"               # Optional external epigenetic embeddings (e.g., from CistromeSparX)
 ```
 
 ### `training` Section
@@ -145,13 +145,13 @@ training:
 Metadata for tracking experiments:
 ```yaml
 experiment:
-  name: "sig_cistrome"  # Identifier for the experiment
+  name: "sig_cistrome"  # Identifier for the experiment (arbitrary string for naming output files)
 ```
 
 You can supply this config file when fitting a model using the `fit_model` command:
 
 ```bash
-python scEpiSparX.py fit_model config_sig_cistrome.yaml
+python scepisparx.py fit_model config_sig_cistrome.yaml
 ```
 
 
@@ -192,15 +192,17 @@ To test the software download and preprocess a 10x Multiome dataset:
 ```bash
 python src/extract_neurips_data.py
 ```
+This script downloads a single cell multiome dataset, extracts embeddings from the scATAC-seq, 
+and aggregates region reads and gene reads according to cell type. 
 Several `.h5ad` should appear in the `data` folder. 
 Edit the paths in the config file `configs/configs_0:sc.yaml`, then 
 run the regression model:
 ```bash
-python src/scEpiSparX.py fit_model configs/config_0_sc.yaml
+python src/scepisparx.py fit_model configs/config_0_sc.yaml
 ```
 Find the active cis-regulatory regions from the most recent model.
 ```bash
-python src/scEpiSparX.py find_cres models/model*all.pth --config configs/config_0_sc.yaml
+python src/scepisparx.py find_cres models/model*all.pth --config configs/config_0_sc.yaml
 ```
 
 ## Citation
