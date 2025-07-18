@@ -1,11 +1,36 @@
 import argparse
 import numpy as np
 import scanpy as sc
+from scipy.sparse import issparse
 from scipy.sparse import random
 from scipy.sparse import dok_matrix, csr_matrix
 from scipy.sparse import diags
 from sklearn.decomposition import TruncatedSVD
 import warnings
+
+
+def sum_along_axis(matrix, axis=1, eps=1e-10):
+    """
+    Safely sum along axis for both sparse and dense matrices.
+    Returns a 1D numpy array.
+    
+    Parameters:
+    - matrix: np.ndarray or scipy.sparse matrix
+    - axis: axis to sum over (0 = columns, 1 = rows)
+    - eps: small value to add to avoid divide-by-zero or log(0)
+    
+    Returns:
+    - 1D numpy array of summed values with eps added
+    """
+    summed = matrix.sum(axis=axis)
+
+    # If summed is sparse or 2D (e.g. (n, 1) or (1, n)), flatten to 1D
+    if issparse(summed):
+        summed = np.ravel(summed.A)  # convert to dense array and flatten
+    else:
+        summed = np.ravel(summed)    # for dense arrays
+
+    return summed + eps
 
 def multiply_by_rows(matrix, row_coefs):
     normalizer = dok_matrix((len(row_coefs), len(row_coefs)))
@@ -34,8 +59,10 @@ def calc_pointwise_mutual_info(counts, exponent=1, neg_val=1, region_axis=1):
 
     # TODO check if counts is words x contexts or contexts x words
     # ie regions x cells or cells x regions
-    sum_w = np.array(counts.sum(axis=1))[:, 0] + eps  # sum over columns
-    sum_c = np.array(counts.sum(axis=0))[0, :] + eps  # sum over rows
+    # TODO CHECK sum_w = np.array(counts.sum(axis=1))[:, 0] + eps  # sum over columns
+    sum_w = sum_along_axis(counts, axis=1, eps=eps)
+    ## TODO CHECK sum_c = np.array(counts.sum(axis=0))[0, :] + eps  # sum over rows
+    sum_c = sum_along_axis(counts, axis=0, eps=eps)
 
     if exponent != 1:
         sum_c = sum_c ** exponent
@@ -77,6 +104,9 @@ def generate_pssm_svd_embeddings(regions, n_components=64, n_iter=70, random_sta
         rows are samples, cols are regions
         col format is fast for col access
     """
+
+    if verbose:
+        print("Input matrix shape (X):", regions.X.shape)
 
     mutual_info_matrix = calc_pointwise_mutual_info( regions.X, exponent=1)
 
@@ -189,7 +219,7 @@ def main(args):
         adata.varm["PPMI_embeddings"] = generate_pssm_svd_embeddings(adata, n_components=args.n_components, verbose=args.verbose)
         sc.pp.neighbors(adata, use_rep="PPMI_embeddings", n_pcs=min(30,args.n_components))
 
-    # Perform clustering and UMAP on LSI components
+    # Perform clustering and UMAP embeddings
     sc.tl.umap(adata)
     sc.tl.leiden(adata, resolution=0.5) 
     sc.pl.umap(adata, color="leiden", title=f"Leiden Clustering of {args.embeddings} on UMAP", save=f"_{args.embeddings}_leiden.png")

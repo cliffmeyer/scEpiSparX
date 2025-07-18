@@ -30,7 +30,7 @@ contributions of multiple enhancer elements are assumed to be additive, and the 
 ## Installation
 
 ```bash
-git clone https://github.com/yourusername/scEpiSparX.git
+git clone https://github.com/cliffmeyer/scEpiSparX.git
 cd scEpiSparX
 pip install -r requirements.txt
 ```
